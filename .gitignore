@@ -1,0 +1,14 @@
+node_modules/
+.playwright-mcp/
+choreboard-live*.png
+.next/
+out/
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+*.tsbuildinfo
+coverage/
+.DS_Store
+.hallmark/
+/*.png

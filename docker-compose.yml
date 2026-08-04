@@ -1,0 +1,67 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: choreboard
+      POSTGRES_USER: choreboard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-choreboard}
+      TZ: America/New_York
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - choreboard_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U choreboard -d choreboard"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: choreboard:local
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://choreboard:${POSTGRES_PASSWORD:-choreboard}@db:5432/choreboard?schema=public
+      API_TOKEN: ${API_TOKEN}
+      FEED_TOKEN: ${FEED_TOKEN}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
+      SESSION_SECRET: ${SESSION_SECRET}
+      ADMIN_COOKIE_SECURE: ${ADMIN_COOKIE_SECURE:-false}
+      TZ: America/New_York
+      KIOSK_CONFIRM_TAP: ${KIOSK_CONFIRM_TAP:-false}
+      WEEK_START: ${WEEK_START:-sunday}
+    ports:
+      - "${APP_PORT:-3010}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  cron:
+    image: alpine:3.22
+    restart: unless-stopped
+    environment:
+      API_TOKEN: ${API_TOKEN}
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        while true; do
+          wget -qO- --header="Authorization: Bearer $${API_TOKEN}" --post-data=""
+          http://app:3000/api/internal/materialize?days=60;
+          sleep 86400;
+        done
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  choreboard_postgres:

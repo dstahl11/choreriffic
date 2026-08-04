@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+.playwright-mcp
+choreboard-live*.png
+.env
+.env.*
+npm-debug.log*
+coverage
+.DS_Store

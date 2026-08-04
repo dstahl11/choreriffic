@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TimeOfDay {
+  morning
+  afternoon
+  evening
+  anytime
+}
+
+enum OccurrenceStatus {
+  pending
+  done
+  skipped
+}
+
+model Person {
+  id           String          @id @default(cuid())
+  name         String
+  color        String
+  sortOrder    Int
+  todoistLabel String?
+  choreLinks   ChoreAssignee[]
+  occurrences  Occurrence[]
+
+  @@index([sortOrder])
+}
+
+model Chore {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  active      Boolean         @default(true)
+  rrule       String
+  dtstart     DateTime        @db.Date
+  rotation    Boolean         @default(false)
+  timeOfDay   TimeOfDay?
+  assignees   ChoreAssignee[]
+  occurrences Occurrence[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([active])
+}
+
+model ChoreAssignee {
+  choreId   String
+  personId  String
+  sortOrder Int
+  chore     Chore  @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  person    Person @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  @@id([choreId, personId])
+  @@unique([choreId, sortOrder])
+  @@index([personId])
+}
+
+model Occurrence {
+  id             String           @id @default(cuid())
+  choreId        String
+  date           DateTime         @db.Date
+  assignmentSlot Int              @default(0)
+  personId       String
+  status         OccurrenceStatus @default(pending)
+  completedAt    DateTime?
+  chore          Chore            @relation(fields: [choreId], references: [id], onDelete: Restrict)
+  person         Person           @relation(fields: [personId], references: [id], onDelete: Restrict)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([choreId, date, assignmentSlot])
+  @@index([date, personId])
+  @@index([status, date])
+}

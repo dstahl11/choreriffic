@@ -1,0 +1,51 @@
+{
+  "name": "choreboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:watch": "tsx --test --watch tests/**/*.test.ts",
+    "smoke": "node scripts/smoke.mjs",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx scripts/seed.ts",
+    "occurrences": "tsx scripts/occurrences.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "@fontsource/baloo-2": "5.3.0",
+    "@fontsource/nunito": "5.3.0",
+    "@prisma/client": "6.19.3",
+    "@tailwindcss/postcss": "4.3.3",
+    "bcryptjs": "3.0.3",
+    "date-fns": "4.1.0",
+    "ical-generator": "11.1.0",
+    "next": "16.2.12",
+    "prisma": "6.19.3",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "rrule": "2.8.1",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.20.6",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.1",
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.11",
+    "typescript": "5.9.3"
+  },
+  "overrides": {
+    "postcss": "8.5.18",
+    "sharp": "0.35.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
