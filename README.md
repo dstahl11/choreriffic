@@ -2,7 +2,7 @@
 
 ChoreBoard is a self-hosted family chore system designed to live on an always-on, wall-mounted iPad. It combines a playful, touch-first sticker board with recurring schedules, persistent check-offs, protected administration, reporting, and calendar feeds.
 
-![ChoreBoard upcoming week kiosk view](docs/screenshots/week-board.png)
+![ChoreBoard today board on the iPad kiosk, one column per child with completed chores below](docs/screenshots/day-board.png)
 
 ## Built for the family kiosk
 
@@ -15,6 +15,12 @@ This is not a desktop dashboard squeezed onto a tablet. The primary interface is
 - **Today and Week views** keep the immediate task list focused while still showing the household schedule.
 - **Color and initial badges** identify each assignee at a glance, including when multiple children share the same chore.
 - **Completed states stay visible** so progress feels tangible instead of disappearing.
+
+The Week view swaps the same board for the household's upcoming schedule, so a child can see what is coming without leaving the kiosk.
+
+![ChoreBoard upcoming week kiosk view](docs/screenshots/week-board.png)
+
+Paging back to a finished week shows the same board as a record: completed chores stay in place, checked off and struck through, and anything still outstanding keeps its color.
 
 ![ChoreBoard week view showing completed chores](docs/screenshots/completed-week.png)
 
@@ -33,6 +39,14 @@ The kiosk also looks after itself during long-running use:
 - Uses landscape layouts and iPad safe-area insets
 
 iPadOS still controls whether the physical display sleeps. For a true always-on installation, set **Settings → Display & Brightness → Auto-Lock → Never**. Enable **Guided Access** if the tablet should remain locked inside ChoreBoard.
+
+## Household admin
+
+The kiosk itself has no editing controls, so a child cannot change the schedule. Everything is managed behind a password-protected admin page: people and their kiosk colors, recurring chore rules, one-off overrides, and recent completion totals.
+
+![ChoreBoard household admin page with a chore schedule expanded](docs/screenshots/admin.png)
+
+Each chore carries an RFC 5545 recurrence rule. The editor previews the next five dates as the rule changes, assigns one or more people, and can rotate a shared chore through the selected group instead of repeating it for everyone.
 
 ## What is included
 
