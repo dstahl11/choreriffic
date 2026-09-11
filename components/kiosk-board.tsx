@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   type CSSProperties,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -161,10 +160,6 @@ export function KioskBoard({
     onShow: showRotationView,
   });
 
-  useEffect(() => {
-    if (view === "calendar" && !settings.calendarEnabled) showRotationView("today");
-  }, [settings.calendarEnabled, showRotationView, view]);
-
   const switchView = (nextView: View) => {
     setView(nextView);
     if (nextView === "today") setWeekOffset(0);
@@ -234,7 +229,7 @@ export function KioskBoard({
         <nav className="view-switcher" aria-label="Board view">
           <button type="button" aria-pressed={view === "today"} onClick={() => switchView("today")}>Today</button>
           <button type="button" aria-pressed={view === "week"} onClick={() => switchView("week")}>Week</button>
-          {settings.calendarEnabled ? <button type="button" aria-pressed={view === "calendar"} onClick={() => switchView("calendar")}>Calendar</button> : null}
+          <button type="button" aria-pressed={view === "calendar"} onClick={() => switchView("calendar")}>Calendar</button>
         </nav>
       </BoardHeader>
 

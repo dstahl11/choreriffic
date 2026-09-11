@@ -113,6 +113,6 @@ model KioskSettings {
   rotationChoresSeconds   Int           @default(90)
   rotationCalendarSeconds Int           @default(45)
   rotationCalendarRange   CalendarRange @default(day)
-  calendarDefaultRange    CalendarRange @default(day)
+  calendarDefaultRange    CalendarRange @default(week)
   updatedAt               DateTime      @updatedAt
 }

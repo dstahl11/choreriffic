@@ -15,7 +15,7 @@ export default async function HomePage({
   const initialSettings = await getKioskSettings(prisma);
   const initialView = params.view === "week"
     ? "week"
-    : params.view === "calendar" && initialSettings.calendarEnabled
+    : params.view === "calendar"
       ? "calendar"
       : "today";
   const initialCalendarRange = params.range === "day" || params.range === "week"
