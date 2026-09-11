@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { JWT } from "google-auth-library";
+import { JWT, OAuth2Client, type Credentials } from "google-auth-library";
 import { addCalendarDays, parseCalendarDate } from "@/lib/date";
 import { appTimeZoneOffsetMinutes } from "@/lib/calendar/normalize";
 import type {
@@ -17,6 +17,64 @@ const EVENT_COLORS: Record<string, string> = {
 };
 
 type ServiceAccountKey = { client_email?: string; private_key?: string };
+type OAuthClientConfig = {
+  clientId: string;
+  clientSecret: string;
+  redirectUri?: string;
+};
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+export function parseGoogleOAuthClient(value: unknown): OAuthClientConfig {
+  const root = record(value);
+  const client = record(root?.installed) ?? record(root?.web) ?? root;
+  const clientId = typeof client?.client_id === "string" ? client.client_id : "";
+  const clientSecret = typeof client?.client_secret === "string" ? client.client_secret : "";
+  const redirectUris = Array.isArray(client?.redirect_uris) ? client.redirect_uris : [];
+  const redirectUri = redirectUris.find((item): item is string => typeof item === "string");
+  if (!clientId || !clientSecret) throw new Error("Google OAuth client credentials are invalid.");
+  return { clientId, clientSecret, redirectUri };
+}
+
+export function parseGoogleOAuthToken(value: unknown, profile = "normal"): Credentials {
+  const root = record(value);
+  const candidate = record(root?.refresh_token ? root : root?.[profile]);
+  const refreshToken = typeof candidate?.refresh_token === "string" ? candidate.refresh_token : "";
+  if (!refreshToken) throw new Error(`Google OAuth token profile '${profile}' has no refresh token.`);
+  return {
+    access_token: typeof candidate?.access_token === "string" ? candidate.access_token : undefined,
+    refresh_token: refreshToken,
+    expiry_date: typeof candidate?.expiry_date === "number" ? candidate.expiry_date : undefined,
+    scope: typeof candidate?.scope === "string" ? candidate.scope : undefined,
+    token_type: typeof candidate?.token_type === "string" ? candidate.token_type : undefined,
+  };
+}
+
+async function readJsonFile(file: string, label: string) {
+  try {
+    return JSON.parse(await readFile(file, "utf8")) as unknown;
+  } catch {
+    throw new Error(`${label} is not configured.`);
+  }
+}
+
+function oauthFiles() {
+  const credentialsFile = process.env.GOOGLE_OAUTH_CREDENTIALS_FILE?.trim();
+  const tokenFile = process.env.GOOGLE_OAUTH_TOKEN_FILE?.trim();
+  if (!credentialsFile && !tokenFile) return null;
+  if (!credentialsFile || !tokenFile) {
+    throw new Error("Both Google OAuth credential and token files must be configured.");
+  }
+  return {
+    credentialsFile,
+    tokenFile,
+    profile: process.env.GOOGLE_OAUTH_TOKEN_PROFILE?.trim() || "normal",
+  };
+}
 
 async function readCredentials(): Promise<ServiceAccountKey> {
   const inline = process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.trim();
@@ -42,7 +100,42 @@ export async function getGoogleServiceAccountEmail() {
   }
 }
 
+export async function getGoogleAuthMode(): Promise<"oauth" | "service-account" | null> {
+  try {
+    const oauth = oauthFiles();
+    if (oauth) {
+      parseGoogleOAuthClient(await readJsonFile(oauth.credentialsFile, "Google OAuth client credentials"));
+      parseGoogleOAuthToken(await readJsonFile(oauth.tokenFile, "Google OAuth token"), oauth.profile);
+      return "oauth";
+    }
+    const credentials = await readCredentials();
+    return credentials.client_email && credentials.private_key ? "service-account" : null;
+  } catch {
+    return null;
+  }
+}
+
 async function accessToken() {
+  const oauth = oauthFiles();
+  if (oauth) {
+    const clientConfig = parseGoogleOAuthClient(
+      await readJsonFile(oauth.credentialsFile, "Google OAuth client credentials"),
+    );
+    const token = parseGoogleOAuthToken(
+      await readJsonFile(oauth.tokenFile, "Google OAuth token"),
+      oauth.profile,
+    );
+    const client = new OAuth2Client(
+      clientConfig.clientId,
+      clientConfig.clientSecret,
+      clientConfig.redirectUri,
+    );
+    client.setCredentials(token);
+    const result = await client.getAccessToken();
+    if (!result.token) throw new Error("Google did not refresh the OAuth access token.");
+    return result.token;
+  }
+
   const credentials = await readCredentials();
   if (!credentials.client_email || !credentials.private_key) {
     throw new Error("Google service account is not configured.");
@@ -66,7 +159,7 @@ function rangeBoundary(date: string) {
 
 function friendlyGoogleError(status: number, statusText: string) {
   if (status === 401 || status === 403) {
-    return "Calendar is not shared with the service account or the key is invalid.";
+    return "Google Calendar access is not authorized for this calendar or the credentials are invalid.";
   }
   if (status === 404) return "Calendar ID not found.";
   return `Google Calendar returned ${status}${statusText ? ` ${statusText}` : ""}.`;

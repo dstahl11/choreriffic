@@ -35,9 +35,12 @@ services:
       WEEK_START: ${WEEK_START:-sunday}
       GOOGLE_SERVICE_ACCOUNT_FILE: ${GOOGLE_SERVICE_ACCOUNT_FILE:-/run/secrets/google-service-account.json}
       GOOGLE_SERVICE_ACCOUNT_KEY: ${GOOGLE_SERVICE_ACCOUNT_KEY:-}
+      GOOGLE_OAUTH_CREDENTIALS_FILE: ${GOOGLE_OAUTH_CREDENTIALS_FILE:-}
+      GOOGLE_OAUTH_TOKEN_FILE: ${GOOGLE_OAUTH_TOKEN_FILE:-}
+      GOOGLE_OAUTH_TOKEN_PROFILE: ${GOOGLE_OAUTH_TOKEN_PROFILE:-normal}
       CALENDAR_ALLOW_PRIVATE_URLS: ${CALENDAR_ALLOW_PRIVATE_URLS:-false}
     volumes:
-      - ./secrets/google-service-account.json:/run/secrets/google-service-account.json:ro
+      - ./secrets:/run/secrets:ro
     ports:
       - "${APP_PORT:-3010}:3000"
     depends_on:

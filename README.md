@@ -97,7 +97,7 @@ The demo seed is clearly prefixed with `Demo` and is never run automatically in 
 
 ## Connect family calendars
 
-Google Calendar uses a server-side service account, including with consumer Gmail accounts:
+Google Calendar supports either a server-side service account or an existing Google OAuth refresh token. For a service account, including with consumer Gmail accounts:
 
 1. In Google Cloud, create or select a project and enable **Google Calendar API**.
 2. Open **IAM & Admin → Service Accounts**, create a service account, then open **Keys → Add key → Create new key → JSON**.
@@ -106,6 +106,8 @@ Google Calendar uses a server-side service account, including with consumer Gmai
 5. Sign in to `/admin`, add the calendar ID from Google Calendar settings, and choose **Sync now** to verify it.
 
 The default file path is `/run/secrets/google-service-account.json`. Set `GOOGLE_SERVICE_ACCOUNT_FILE` to use another path, or set `GOOGLE_SERVICE_ACCOUNT_KEY` to raw/base64 JSON when a file mount is impractical. Never expose either value to browser code.
+
+To reuse OAuth authorization, mount the Google installed-app client JSON and token JSON into the container, then set `GOOGLE_OAUTH_CREDENTIALS_FILE` and `GOOGLE_OAUTH_TOKEN_FILE`. A direct token object is accepted, as is an OpenClaw-style profiled token object; set `GOOGLE_OAUTH_TOKEN_PROFILE` to the profile name (default `normal`). The token must contain a refresh token with Calendar scope. When OAuth is configured it takes precedence over the service account, and ChoreBoard still performs read-only Calendar API requests only.
 
 School, sports, iCloud, Outlook, and other published calendars can be added as ICS URLs in the same admin section. `webcal://` is accepted and normalized to HTTPS. Private-network destinations are blocked by default to prevent server-side request forgery; set `CALENDAR_ALLOW_PRIVATE_URLS=true` only when deliberately subscribing to a trusted LAN-hosted feed.
 
@@ -125,7 +127,7 @@ curl --fail http://127.0.0.1:3010/health
 
 The app applies committed Prisma migrations before starting. The `cron` service calls the internal materialization endpoint every 24 hours.
 
-The Compose app service mounts `./secrets/google-service-account.json` read-only. Create that file before starting Compose when using Google Calendar. If only ICS sources are used, set `GOOGLE_SERVICE_ACCOUNT_FILE` to an absent protected path and ignore the Google setup warning in admin.
+The Compose app service mounts the protected `./secrets` directory read-only at `/run/secrets`. Put the service-account key or OAuth files there before starting Compose. If only ICS sources are used, leave the Google OAuth variables unset and ignore the Google setup warning in admin.
 
 `ADMIN_COOKIE_SECURE` must remain `false` for direct LAN HTTP access. Set it to `true` only after the app is served through an HTTPS reverse proxy.
 

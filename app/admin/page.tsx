@@ -21,7 +21,7 @@ import {
 import { queryOccurrences } from "@/lib/occurrences";
 import { prisma } from "@/lib/prisma";
 import { getStoredKioskSettings } from "@/lib/calendar/settings";
-import { getGoogleServiceAccountEmail } from "@/lib/calendar/google";
+import { getGoogleAuthMode, getGoogleServiceAccountEmail } from "@/lib/calendar/google";
 
 export const dynamic = "force-dynamic";
 
@@ -40,13 +40,14 @@ export default async function AdminPage() {
   const today = todayInAppTimeZone();
   const nextTwoWeeks = addCalendarDays(today, 14);
   const monthAgo = addCalendarDays(today, -30);
-  const [people, chores, upcoming, completed, calendarSources, kioskSettings, serviceAccountEmail] = await Promise.all([
+  const [people, chores, upcoming, completed, calendarSources, kioskSettings, googleAuthMode, serviceAccountEmail] = await Promise.all([
     prisma.person.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.chore.findMany({ include: choreInclude, orderBy: [{ active: "desc" }, { title: "asc" }] }),
     queryOccurrences(prisma, { from: formatCalendarDate(today), to: formatCalendarDate(nextTwoWeeks) }),
     queryOccurrences(prisma, { from: formatCalendarDate(monthAgo), to: formatCalendarDate(today), status: OccurrenceStatus.done }),
     prisma.calendarSource.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     getStoredKioskSettings(prisma),
+    getGoogleAuthMode(),
     getGoogleServiceAccountEmail(),
   ]);
 
@@ -138,13 +139,22 @@ export default async function AdminPage() {
         <div className="section-heading"><h2>Calendar</h2><p>Read-only sources shown on the family kiosk.</p></div>
         <details className="admin-disclosure calendar-help">
           <summary>How to connect Google Calendar</summary>
-          <ol>
-            <li>Enable the Google Calendar API in the service account&apos;s Google Cloud project.</li>
-            <li>Mount its JSON key at <code>/run/secrets/google-service-account.json</code>.</li>
-            <li>In Google Calendar, share each calendar with the service account using “See all event details.”</li>
-            <li>Copy the calendar ID from Google Calendar settings into the form below.</li>
-          </ol>
-          {serviceAccountEmail ? <p>Share with: <code>{serviceAccountEmail}</code></p> : <p className="form-error">Google service account is not configured.</p>}
+          {googleAuthMode === "oauth" ? (
+            <>
+              <p>Google OAuth is configured. Add calendar IDs that the authorized Google account can read.</p>
+              <p>The kiosk only reads event details; it does not create or change Google Calendar events.</p>
+            </>
+          ) : (
+            <>
+              <ol>
+                <li>Enable the Google Calendar API in the service account&apos;s Google Cloud project.</li>
+                <li>Mount its JSON key at <code>/run/secrets/google-service-account.json</code>.</li>
+                <li>In Google Calendar, share each calendar with the service account using “See all event details.”</li>
+                <li>Copy the calendar ID from Google Calendar settings into the form below.</li>
+              </ol>
+              {serviceAccountEmail ? <p>Share with: <code>{serviceAccountEmail}</code></p> : <p className="form-error">Google Calendar authentication is not configured.</p>}
+            </>
+          )}
         </details>
         <div className="calendar-source-list">
           {calendarSources.map((source) => (
