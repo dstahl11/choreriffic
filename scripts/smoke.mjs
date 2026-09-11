@@ -15,6 +15,14 @@ function assert(value, message) {
 const health = await fetch(`${baseUrl}/health`);
 assert(health.ok, `Health check returned ${health.status}.`);
 
+const kioskCalendar = await fetch(`${baseUrl}/kiosk/calendar?from=${from}&to=${to}`);
+assert(kioskCalendar.ok, `Kiosk calendar returned ${kioskCalendar.status}.`);
+const kioskCalendarBody = await kioskCalendar.json();
+assert(Array.isArray(kioskCalendarBody.data?.events), "Kiosk calendar response did not include events.");
+const serializedCalendar = JSON.stringify(kioskCalendarBody);
+assert(!serializedCalendar.includes("icsUrl"), "Kiosk calendar exposed an ICS URL field.");
+assert(!serializedCalendar.includes("googleCalendarId"), "Kiosk calendar exposed a Google calendar ID field.");
+
 const unauthorized = await fetch(`${baseUrl}/api/occurrences?from=${from}&to=${to}`);
 assert(unauthorized.status === 401, `Unauthorized API request returned ${unauthorized.status}.`);
 
@@ -55,5 +63,5 @@ assert(
 );
 
 console.log(
-  `Smoke test passed: ${occurrenceBody.data.length} occurrence(s), auth, reports, writes, undo, and ICS.`,
+  `Smoke test passed: ${occurrenceBody.data.length} occurrence(s), auth, reports, writes, undo, calendar view, and ICS feed.`,
 );

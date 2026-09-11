@@ -33,6 +33,11 @@ services:
       TZ: America/New_York
       KIOSK_CONFIRM_TAP: ${KIOSK_CONFIRM_TAP:-false}
       WEEK_START: ${WEEK_START:-sunday}
+      GOOGLE_SERVICE_ACCOUNT_FILE: ${GOOGLE_SERVICE_ACCOUNT_FILE:-/run/secrets/google-service-account.json}
+      GOOGLE_SERVICE_ACCOUNT_KEY: ${GOOGLE_SERVICE_ACCOUNT_KEY:-}
+      CALENDAR_ALLOW_PRIVATE_URLS: ${CALENDAR_ALLOW_PRIVATE_URLS:-false}
+    volumes:
+      - ./secrets/google-service-account.json:/run/secrets/google-service-account.json:ro
     ports:
       - "${APP_PORT:-3010}:3000"
     depends_on:

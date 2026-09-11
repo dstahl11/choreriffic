@@ -1,14 +1,17 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { APP_TIME_ZONE } from "@/lib/date";
 
 const STALE_AFTER_MS = 3 * 60_000;
 
 function localDayKey(timestamp: number) {
-  const date = new Date(timestamp);
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 export function BoardHeader({
@@ -16,11 +19,13 @@ export function BoardHeader({
   children,
   lastSuccess,
   onDateRollover,
+  onNowChange,
 }: {
   boardDate: string;
   children: ReactNode;
   lastSuccess: number | null;
   onDateRollover: () => void;
+  onNowChange?: (now: number) => void;
 }) {
   const [now, setNow] = useState<number | null>(null);
   const previousDay = useRef<string | null>(null);
@@ -30,6 +35,10 @@ export function BoardHeader({
     const interval = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (now !== null) onNowChange?.(now);
+  }, [now, onNowChange]);
 
   const dayKey = now === null ? null : localDayKey(now);
   useEffect(() => {
@@ -56,14 +65,16 @@ export function BoardHeader({
 
   const stale = lastSuccess === null || now - lastSuccess > STALE_AFTER_MS;
   const date = new Date(now);
-  const weekday = date.toLocaleDateString(undefined, { weekday: "long" });
+  const weekday = date.toLocaleDateString(undefined, { weekday: "long", timeZone: APP_TIME_ZONE });
   const dateLabel = date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
+    timeZone: APP_TIME_ZONE,
   });
   const timeLabel = date.toLocaleTimeString(undefined, {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: APP_TIME_ZONE,
   });
 
   return (

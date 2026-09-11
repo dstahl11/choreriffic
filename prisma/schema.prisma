@@ -20,6 +20,16 @@ enum OccurrenceStatus {
   skipped
 }
 
+enum CalendarSourceKind {
+  google
+  ics
+}
+
+enum CalendarRange {
+  day
+  week
+}
+
 model Person {
   id           String          @id @default(cuid())
   name         String
@@ -77,4 +87,32 @@ model Occurrence {
   @@unique([choreId, date, assignmentSlot])
   @@index([date, personId])
   @@index([status, date])
+}
+
+model CalendarSource {
+  id               String             @id @default(cuid())
+  kind             CalendarSourceKind
+  name             String
+  color            String
+  enabled          Boolean            @default(true)
+  sortOrder        Int
+  googleCalendarId String?
+  icsUrl           String?
+  showLocation     Boolean            @default(true)
+  lastSyncedAt     DateTime?
+  lastError        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
+model KioskSettings {
+  id                      Int           @id @default(1)
+  rotationEnabled         Boolean       @default(false)
+  rotationChoresSeconds   Int           @default(90)
+  rotationCalendarSeconds Int           @default(45)
+  rotationCalendarRange   CalendarRange @default(day)
+  calendarDefaultRange    CalendarRange @default(day)
+  updatedAt               DateTime      @updatedAt
 }

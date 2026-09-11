@@ -12,11 +12,17 @@ This is not a desktop dashboard squeezed onto a tablet. The primary interface is
 - **Immediate check-offs** update optimistically and are written to Postgres for durable history and reporting.
 - **Optional tap confirmation** can require a second tap before a pending chore is completed.
 - **Simple undo** lets a child tap a completed chore again to correct a mistake.
-- **Today and Week views** keep the immediate task list focused while still showing the household schedule.
+- **Today, Week, and Calendar views** keep chores focused while showing the household schedule.
 - **Color and initial badges** identify each assignee at a glance, including when multiple children share the same chore.
 - **Completed states stay visible** so progress feels tangible instead of disappearing.
 
 The Week view swaps the same board for the household's upcoming schedule, so a child can see what is coming without leaving the kiosk.
+
+The read-only Calendar view combines Google Calendar and ICS subscriptions. It includes large Day and seven-column Week layouts, all-day and timed events, multi-day expansion, source colors, locations, and last-good data when an upstream calendar is unavailable.
+
+![ChoreBoard calendar day agenda](docs/screenshots/calendar-day.png)
+
+![ChoreBoard calendar week view](docs/screenshots/calendar-week.png)
 
 ![ChoreBoard upcoming week kiosk view](docs/screenshots/week-board.png)
 
@@ -36,13 +42,14 @@ The kiosk also looks after itself during long-running use:
 - Resynchronizes whenever the iPad comes back online or the app becomes visible
 - Rolls over to the new day without needing a reload
 - Returns to the Today board after five minutes of inactivity
+- Can auto-rotate between Today chores and Calendar; touching the kiosk pauses rotation until it has been idle for five minutes
 - Uses landscape layouts and iPad safe-area insets
 
 iPadOS still controls whether the physical display sleeps. For a true always-on installation, set **Settings → Display & Brightness → Auto-Lock → Never**. Enable **Guided Access** if the tablet should remain locked inside ChoreBoard.
 
 ## Household admin
 
-The kiosk itself has no editing controls, so a child cannot change the schedule. Everything is managed behind a password-protected admin page: people and their kiosk colors, recurring chore rules, one-off overrides, and recent completion totals.
+The kiosk itself has no editing controls, so a child cannot change the schedule. Everything is managed behind a password-protected admin page: people and their kiosk colors, recurring chore rules, one-off overrides, calendar sources, kiosk rotation, and recent completion totals.
 
 ![ChoreBoard household admin page with a chore schedule expanded](docs/screenshots/admin.png)
 
@@ -59,6 +66,7 @@ Each chore carries an RFC 5545 recurrence rule. The editor previews the next fiv
 - Completion reports grouped by person and chore
 - Bearer-authenticated REST API
 - Combined and per-person ICS calendar feeds
+- Read-only Google Calendar and ICS subscription aggregation
 - Daily 60-day occurrence-materialization sidecar
 - Docker Compose deployment with Postgres
 
@@ -87,6 +95,24 @@ npm run dev
 
 The demo seed is clearly prefixed with `Demo` and is never run automatically in production.
 
+## Connect family calendars
+
+Google Calendar uses a server-side service account, including with consumer Gmail accounts:
+
+1. In Google Cloud, create or select a project and enable **Google Calendar API**.
+2. Open **IAM & Admin → Service Accounts**, create a service account, then open **Keys → Add key → Create new key → JSON**.
+3. Save the downloaded file as `secrets/google-service-account.json`. Keep it out of source control and restrict filesystem access to it.
+4. In Google Calendar, share each family calendar with the service account's `client_email` using **See all event details**.
+5. Sign in to `/admin`, add the calendar ID from Google Calendar settings, and choose **Sync now** to verify it.
+
+The default file path is `/run/secrets/google-service-account.json`. Set `GOOGLE_SERVICE_ACCOUNT_FILE` to use another path, or set `GOOGLE_SERVICE_ACCOUNT_KEY` to raw/base64 JSON when a file mount is impractical. Never expose either value to browser code.
+
+School, sports, iCloud, Outlook, and other published calendars can be added as ICS URLs in the same admin section. `webcal://` is accepted and normalized to HTTPS. Private-network destinations are blocked by default to prevent server-side request forgery; set `CALENDAR_ALLOW_PRIVATE_URLS=true` only when deliberately subscribing to a trusted LAN-hosted feed.
+
+Calendar data is polled from the kiosk and cached server-side for five minutes (Google) or fifteen minutes (ICS). A failed refresh serves the last good process-local result and marks the calendar as possibly out of date.
+
+The kiosk routes are intentionally unauthenticated on the LAN. Anyone who can reach the kiosk URL can see the event titles and any enabled locations, just as they can see chores. Share only calendars appropriate for that audience. Service-account keys, full ICS URLs, provider calendar IDs, and sync error details remain server-only.
+
 ## Production
 
 Create a protected `.env` containing the variables from `.env.example`, then:
@@ -98,6 +124,8 @@ curl --fail http://127.0.0.1:3010/health
 ```
 
 The app applies committed Prisma migrations before starting. The `cron` service calls the internal materialization endpoint every 24 hours.
+
+The Compose app service mounts `./secrets/google-service-account.json` read-only. Create that file before starting Compose when using Google Calendar. If only ICS sources are used, set `GOOGLE_SERVICE_ACCOUNT_FILE` to an absent protected path and ignore the Google setup warning in admin.
 
 `ADMIN_COOKIE_SECURE` must remain `false` for direct LAN HTTP access. Set it to `true` only after the app is served through an HTTPS reverse proxy.
 

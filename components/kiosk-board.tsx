@@ -11,10 +11,19 @@ import {
   useState,
 } from "react";
 import { BoardHeader } from "@/components/board-header";
+import { CalendarBoard } from "@/components/calendar-board";
 import { useBoardData } from "@/hooks/use-board-data";
-import type { KioskOccurrence, KioskPayload, KioskPerson } from "@/types/kiosk";
+import { useKioskRotation } from "@/hooks/use-kiosk-rotation";
+import { rotationSchedule } from "@/lib/rotation";
+import type {
+  CalendarRange,
+  KioskOccurrence,
+  KioskPayload,
+  KioskPerson,
+  KioskSettings,
+} from "@/types/kiosk";
 
-type View = "today" | "week";
+type View = "today" | "week" | "calendar";
 type WeekStart = "monday" | "sunday";
 
 const TIME_ORDER = { morning: 0, afternoon: 1, evening: 2, anytime: 3 } as const;
@@ -27,6 +36,15 @@ const TIME_LABELS = {
 
 function dateToString(date: Date) {
   return format(date, "yyyy-MM-dd");
+}
+
+function currentCalendarDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function getWeekStart(today: string, weekStartsOn: WeekStart, offset: number) {
@@ -61,11 +79,15 @@ function PersonHeader({ person, items }: { person: KioskPerson; items: KioskOccu
 export function KioskBoard({
   initialToday,
   initialView,
+  initialCalendarRange,
+  initialSettings,
   weekStartsOn,
   confirmTap,
 }: {
   initialToday: string;
   initialView: View;
+  initialCalendarRange: CalendarRange;
+  initialSettings: KioskSettings;
   weekStartsOn: WeekStart;
   confirmTap: boolean;
 }) {
@@ -73,6 +95,9 @@ export function KioskBoard({
   const [view, setView] = useState<View>(initialView);
   const [today, setToday] = useState(initialToday);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [calendarRange, setCalendarRange] = useState(initialCalendarRange);
+  const [calendarOffset, setCalendarOffset] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const [actionError, setActionError] = useState("");
   const [armedId, setArmedId] = useState<string | null>(null);
   const armTimer = useRef<number | null>(null);
@@ -87,9 +112,9 @@ export function KioskBoard({
   );
   const range = useMemo(
     () =>
-      view === "today"
-        ? { from: today, to: today }
-        : { from: dateToString(days[0]), to: dateToString(days[6]) },
+      view === "week"
+        ? { from: dateToString(days[0]), to: dateToString(days[6]) }
+        : { from: today, to: today },
     [days, today, view],
   );
 
@@ -102,42 +127,58 @@ export function KioskBoard({
     refetchNow,
     setData,
   } = useBoardData<KioskPayload>(boardUrl);
-  const payload = data ?? { people: [], occurrences: [] };
+  const payload = data ?? { people: [], occurrences: [], settings: initialSettings };
+  const settings = payload.settings;
 
   const handleDateRollover = useCallback(() => {
-    const nextToday = dateToString(new Date());
+    const nextToday = currentCalendarDate();
     if (view === "week") {
       const nextWeekStart = getWeekStart(nextToday, weekStartsOn, weekOffset);
       const nextFrom = dateToString(nextWeekStart);
       const nextTo = dateToString(addDays(nextWeekStart, 6));
       if (nextFrom === range.from && nextTo === range.to) refetchNow();
     }
+    if (view === "calendar" && calendarOffset === 0) setCalendarOffset(0);
     setToday(nextToday);
-  }, [range.from, range.to, refetchNow, view, weekOffset, weekStartsOn]);
+  }, [calendarOffset, range.from, range.to, refetchNow, view, weekOffset, weekStartsOn]);
+
+  const showRotationView = useCallback((nextView: "today" | "calendar") => {
+    setView(nextView);
+    setWeekOffset(0);
+    setCalendarOffset(0);
+    if (nextView === "calendar") {
+      setCalendarRange(settings.rotationCalendarRange);
+      router.replace(`/?view=calendar&range=${settings.rotationCalendarRange}`, { scroll: false });
+    } else {
+      router.replace("/", { scroll: false });
+    }
+  }, [router, settings.rotationCalendarRange]);
+  const schedule = useMemo(() => rotationSchedule(settings), [settings]);
+  useKioskRotation({
+    enabled: settings.rotationEnabled && settings.calendarEnabled,
+    schedule,
+    idleMs: 5 * 60_000,
+    onShow: showRotationView,
+  });
 
   useEffect(() => {
-    let idleTimer = 0;
-    const reset = () => {
-      window.clearTimeout(idleTimer);
-      idleTimer = window.setTimeout(() => {
-        setView("today");
-        setWeekOffset(0);
-        router.replace("/");
-      }, 5 * 60_000);
-    };
-    const events = ["pointerdown", "keydown"] as const;
-    events.forEach((event) => window.addEventListener(event, reset, { passive: true }));
-    reset();
-    return () => {
-      window.clearTimeout(idleTimer);
-      events.forEach((event) => window.removeEventListener(event, reset));
-    };
-  }, [router]);
+    if (view === "calendar" && !settings.calendarEnabled) showRotationView("today");
+  }, [settings.calendarEnabled, showRotationView, view]);
 
   const switchView = (nextView: View) => {
     setView(nextView);
     if (nextView === "today") setWeekOffset(0);
-    router.replace(nextView === "week" ? "/?view=week" : "/", { scroll: false });
+    if (nextView === "calendar") {
+      setCalendarOffset(0);
+      router.replace(`/?view=calendar&range=${calendarRange}`, { scroll: false });
+    } else {
+      router.replace(nextView === "week" ? "/?view=week" : "/", { scroll: false });
+    }
+  };
+
+  const changeCalendarRange = (nextRange: CalendarRange) => {
+    setCalendarRange(nextRange);
+    router.replace(`/?view=calendar&range=${nextRange}`, { scroll: false });
   };
 
   const toggleOccurrence = async (occurrence: KioskOccurrence) => {
@@ -188,11 +229,12 @@ export function KioskBoard({
   const error = actionError || pollError;
 
   return (
-    <main className="kiosk-shell board-root">
-      <BoardHeader boardDate={today} lastSuccess={lastSuccess} onDateRollover={handleDateRollover}>
+    <main className="kiosk-shell board-root" data-view={view}>
+      <BoardHeader boardDate={today} lastSuccess={lastSuccess} onDateRollover={handleDateRollover} onNowChange={setNow}>
         <nav className="view-switcher" aria-label="Board view">
           <button type="button" aria-pressed={view === "today"} onClick={() => switchView("today")}>Today</button>
           <button type="button" aria-pressed={view === "week"} onClick={() => switchView("week")}>Week</button>
+          {settings.calendarEnabled ? <button type="button" aria-pressed={view === "calendar"} onClick={() => switchView("calendar")}>Calendar</button> : null}
         </nav>
       </BoardHeader>
 
@@ -200,7 +242,17 @@ export function KioskBoard({
         {error ? <p className="error-message">{error}</p> : null}
       </div>
 
-      {loading && payload.people.length === 0 ? (
+      {view === "calendar" ? (
+        <CalendarBoard
+          today={today}
+          range={calendarRange}
+          offset={calendarOffset}
+          weekStartsOn={weekStartsOn}
+          now={now}
+          onRangeChange={changeCalendarRange}
+          onOffsetChange={setCalendarOffset}
+        />
+      ) : loading && payload.people.length === 0 ? (
         <div className="kiosk-loading">Loading the sticker board…</div>
       ) : payload.people.length === 0 ? (
         <section className="empty-board">
