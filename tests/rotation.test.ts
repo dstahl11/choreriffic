@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nextRotationStep, rotationSchedule } from "@/lib/rotation";
+import { nextRotationStep, resumeKioskView, rotationSchedule } from "@/lib/rotation";
 
 const settings = {
   rotationEnabled: true,
@@ -23,4 +23,11 @@ test("rotation schedule alternates Today and Calendar with configured dwell time
 test("rotation schedule is empty unless rotation and a calendar are enabled", () => {
   assert.deepEqual(rotationSchedule({ ...settings, rotationEnabled: false }), []);
   assert.deepEqual(rotationSchedule({ ...settings, calendarEnabled: false }), []);
+});
+
+test("idle resumes Calendar unless automatic rotation has a schedule", () => {
+  assert.equal(resumeKioskView(false, []), "calendar");
+  assert.equal(resumeKioskView(false, rotationSchedule(settings)), "calendar");
+  assert.equal(resumeKioskView(true, []), "calendar");
+  assert.equal(resumeKioskView(true, rotationSchedule(settings)), "today");
 });

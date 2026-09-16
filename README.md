@@ -41,7 +41,8 @@ The kiosk also looks after itself during long-running use:
 - Shows an offline indicator when data becomes stale
 - Resynchronizes whenever the iPad comes back online or the app becomes visible
 - Rolls over to the new day without needing a reload
-- Returns to the Today board after five minutes of inactivity
+- Opens on Calendar by default; Today and Week buttons switch to chores
+- Returns to Calendar after five minutes of inactivity when auto-rotation is off
 - Can auto-rotate between Today chores and Calendar; touching the kiosk pauses rotation until it has been idle for five minutes
 - Uses landscape layouts and iPad safe-area insets
 

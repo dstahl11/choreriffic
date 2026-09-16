@@ -3,6 +3,7 @@ import { KioskBoard } from "@/components/kiosk-board";
 import { formatCalendarDate, todayInAppTimeZone } from "@/lib/date";
 import { getKioskSettings } from "@/lib/calendar/settings";
 import { prisma } from "@/lib/prisma";
+import { initialKioskView } from "@/lib/kiosk-navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,7 @@ export default async function HomePage({
 }) {
   const params = await searchParams;
   const initialSettings = await getKioskSettings(prisma);
-  const initialView = params.view === "week"
-    ? "week"
-    : params.view === "calendar"
-      ? "calendar"
-      : "today";
+  const initialView = initialKioskView(params.view);
   const initialCalendarRange = params.range === "day" || params.range === "week"
     ? params.range
     : initialSettings.calendarDefaultRange;

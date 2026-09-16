@@ -14,6 +14,7 @@ import { CalendarBoard } from "@/components/calendar-board";
 import { useBoardData } from "@/hooks/use-board-data";
 import { useKioskRotation } from "@/hooks/use-kiosk-rotation";
 import { rotationSchedule } from "@/lib/rotation";
+import { choreViewUrl } from "@/lib/kiosk-navigation";
 import type {
   CalendarRange,
   KioskOccurrence,
@@ -146,12 +147,13 @@ export function KioskBoard({
     setWeekOffset(0);
     setCalendarOffset(0);
     if (nextView === "calendar") {
-      setCalendarRange(settings.rotationCalendarRange);
-      router.replace(`/?view=calendar&range=${settings.rotationCalendarRange}`, { scroll: false });
+      const nextRange = settings.rotationEnabled ? settings.rotationCalendarRange : settings.calendarDefaultRange;
+      setCalendarRange(nextRange);
+      router.replace(`/?view=calendar&range=${nextRange}`, { scroll: false });
     } else {
-      router.replace("/", { scroll: false });
+      router.replace(choreViewUrl("today"), { scroll: false });
     }
-  }, [router, settings.rotationCalendarRange]);
+  }, [router, settings.rotationEnabled, settings.rotationCalendarRange, settings.calendarDefaultRange]);
   const schedule = useMemo(() => rotationSchedule(settings), [settings]);
   useKioskRotation({
     enabled: settings.rotationEnabled && settings.calendarEnabled,
@@ -167,7 +169,7 @@ export function KioskBoard({
       setCalendarOffset(0);
       router.replace(`/?view=calendar&range=${calendarRange}`, { scroll: false });
     } else {
-      router.replace(nextView === "week" ? "/?view=week" : "/", { scroll: false });
+      router.replace(choreViewUrl(nextView), { scroll: false });
     }
   };
 

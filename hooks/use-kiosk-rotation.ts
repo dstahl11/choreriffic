@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { nextRotationStep, type RotationStep } from "@/lib/rotation";
+import { nextRotationStep, resumeKioskView, type RotationStep } from "@/lib/rotation";
 
 export function useKioskRotation({
   enabled,
@@ -37,36 +37,36 @@ export function useKioskRotation({
         armRotation();
       }, schedule[index].dwellMs);
     };
-    const startFromToday = () => {
+    const resume = () => {
       index = 0;
       paused = false;
-      onShowRef.current("today");
+      onShowRef.current(resumeKioskView(enabled, schedule));
       armRotation();
     };
     const armIdleOnly = () => {
       paused = true;
       window.clearTimeout(idleTimer);
-      idleTimer = window.setTimeout(() => onShowRef.current("today"), idleMs);
+      idleTimer = window.setTimeout(resume, idleMs);
     };
     const interact = () => {
       paused = true;
       window.clearTimeout(rotationTimer);
       window.clearTimeout(idleTimer);
-      idleTimer = window.setTimeout(startFromToday, idleMs);
+      idleTimer = window.setTimeout(resume, idleMs);
     };
     const visibility = () => {
       if (document.visibilityState !== "visible") {
         clear();
         paused = true;
       } else {
-        if (enabled && schedule.length) startFromToday();
+        if (enabled && schedule.length) resume();
         else armIdleOnly();
       }
     };
     const events = ["pointerdown", "keydown"] as const;
     events.forEach((event) => window.addEventListener(event, interact, { passive: true }));
     document.addEventListener("visibilitychange", visibility);
-    if (enabled && schedule.length) startFromToday();
+    if (enabled && schedule.length) resume();
     else armIdleOnly();
     return () => {
       clear();
